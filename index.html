@@ -889,34 +889,73 @@
         //   - 如需使用或分发，请务必保留此作者声明。
         // --> 
         async function initMediaPipe() {
-            if (isCameraRunning) return;
-            camBtn.innerText = "Initializing...";
-            debugInfo.innerText = "Loading AI models...";
-            video = document.getElementById('webcam');
-            try {
-                const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-                handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
-                    runningMode: "VIDEO", numHands: 1
-                });
-                const constraints = { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } };
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
-                video.addEventListener("loadeddata", predictWebcam);
-                document.getElementById('webcam-wrapper').style.opacity = 1;
-                debugInfo.innerText = "Gesture Active: Show Hand";
-                camBtn.innerText = "Gesture Active";
-                camBtn.classList.add('active');
-                isCameraRunning = true;
-            } catch (e) {
-                console.warn("Camera error:", e);
-                let msg = "Camera Error: " + e.name;
-                if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') msg = "Please allow camera access!";
-                else if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') msg = "HTTPS required for camera!";
-                debugInfo.innerText = msg; showMsg(msg);
-                camBtn.innerText = "Retry Camera";
-            }
+    if (isCameraRunning) return;
+
+    // 1. 环境检查：必须是 HTTPS 或 localhost
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        const msg = "❌ 移动端必须在 HTTPS 环境下才能开启摄像头！";
+        showMsg(msg);
+        debugInfo.innerText = msg;
+        return;
+    }
+
+    camBtn.innerText = "Initializing...";
+    debugInfo.innerText = "Loading AI models...";
+    video = document.getElementById('webcam');
+
+    try {
+        // 加载 MediaPipe 资源
+        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { 
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, 
+                delegate: "GPU" 
+            },
+            runningMode: "VIDEO", 
+            numHands: 1
+        });
+
+        // 2. 更具兼容性的摄像头参数
+        const constraints = { 
+            video: { 
+                facingMode: "user", 
+                // 移动端分辨率不宜过高，否则模型处理会非常卡顿
+                width: { ideal: 480 }, 
+                height: { ideal: 640 } 
+            } 
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+
+        // 3. 确保视频加载后再启动预测
+        video.onloadedmetadata = () => {
+            video.play();
+            predictWebcam();
+            document.getElementById('webcam-wrapper').style.opacity = 1;
+            debugInfo.innerText = "Gesture Active: Show Hand";
+            camBtn.innerText = "Gesture Active";
+            camBtn.classList.add('active');
+            isCameraRunning = true;
+        };
+
+    } catch (e) {
+        console.error("Camera access error:", e);
+        let errorMsg = "Camera Error";
+        
+        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+            errorMsg = "请在浏览器设置中允许摄像头访问！";
+        } else if (e.name === 'NotFoundError') {
+            errorMsg = "未找到摄像头设备";
+        } else {
+            errorMsg = "初始化失败: " + e.message;
         }
+        
+        debugInfo.innerText = errorMsg;
+        showMsg(errorMsg);
+        camBtn.innerText = "Retry Camera";
+    }
+}
 
         let lastVideoTime = -1;
         async function predictWebcam() {
@@ -1034,3 +1073,4 @@
 </body>
 
 </html>
+
