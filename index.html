@@ -358,6 +358,7 @@
             x5-video-player-fullscreen="true" x5-video-orientation="portrait"
             style="object-fit: cover; width: 100%; height: 100%;"></video>
     </div>
+    <!-- <div id="debug-info">Drag to rotate • Tap photo to view</div> -->
 
     <script type="module">
         import * as THREE from 'three';
@@ -971,7 +972,7 @@
             if (result.landmarks && result.landmarks.length > 0) {
                 STATE.hand.detected = true;
                 const lm = result.landmarks[0];
-                STATE.hand.x = (lm[9].x - 0.5) * 2;
+                STATE.hand.x = (0.5 - lm[9].x) * 2;
                 STATE.hand.y = (lm[9].y - 0.5) * 2;
                 const wrist = lm[0]; const middleMCP = lm[9];
                 const handSize = Math.hypot(middleMCP.x - wrist.x, middleMCP.y - wrist.y);
@@ -1071,4 +1072,3 @@
 </body>
 
 </html>
-
